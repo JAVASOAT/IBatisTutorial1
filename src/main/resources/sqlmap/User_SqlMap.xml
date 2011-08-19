@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap
+PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="user">
+
+	<typeAlias alias="User" type="com.soat.beans.User" />
+	
+	<resultMap class="User" id="userResultMap">
+		<result property="id" column="id_user" javaType="int" />				
+	</resultMap>
+	
+	<select id="selectAllUsers" resultClass="User">
+		SELECT id_user as id, name, firstname, email, password
+		FROM user
+	</select>
+	
+	<insert id="insertUser" parameterClass="User" >
+		INSERT INTO user(name, firstname, email, password)
+		VALUES(#name#, #firstname#, #email#, #password# )
+	</insert>
+	
+	
+	<insert id="insertUserList" parameterClass="map">
+		INSERT INTO user(name, firstname, email, password)
+		VALUES
+		<iterate property="users" open="" close="" conjunction=",">
+		(#users[].name#, #users[].firstname#, #users[].email#, #users[].password#)
+		</iterate>		
+	</insert>
+	
+
+
+</sqlMap>

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap
+PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="book">
+
+	<typeAlias alias="Book" type="com.soat.beans.Book" />
+	<typeAlias alias="Category" type="com.soat.beans.Category" />
+	<typeAlias alias="Param" type="com.soat.beans.Param" />
+	<typeAlias alias="Author" type="com.soat.beans.Author" />
+	
+	<resultMap class="Book" id="bookResultMap">
+		<result property="id" column="id_book" javaType="int" />
+		<result property="isbn" column="isbn" javaType="string" />
+		<result property="title" column="title" javaType="string" />
+		<result property="imageName" column="image_name" javaType="string" />
+		<result property="shortDescription" column="short_description" javaType="string" />
+		<result property="longDescription" column="long_description" javaType="string" />
+	</resultMap>
+	
+	<sql id="selectBook">
+		SELECT
+		b.id_book AS id,
+		b.isbn,
+		b.title,
+		b.short_description AS shortDescription,
+		b.long_description AS longDescription,
+		b.image_name AS imageName
+		FROM book b
+	</sql>
+	
+	<select id="selectAllBooks" resultClass="Book">
+		<include refid="selectBook"/>
+	</select>
+	
+	
+	<select id="selectBookById" parameterClass="int" resultClass="Book">
+		<include refid="selectBook"/> 
+		WHERE b.id_book = #id#
+	</select>
+
+	<select id="selectBookByCategory" parameterClass="int" resultClass="Book">
+		<include refid="selectBook"/>
+		JOIN category_book cb ON b.id_book = cb.id_book
+		WHERE cb.id_category = #id#		
+	</select>
+
+	<select id="selectBookByKeyWord" parameterClass="string" resultClass="Book">	
+		<include refid="selectBook"/>
+		WHERE isbn LIKE CONCAT('%', #word#,'%') 
+		OR title LIKE CONCAT('%', #word#,'%')
+		OR long_description LIKE CONCAT('%', #word#,'%')		    		
+	</select>
+
+	<insert id="insertBook" parameterClass="Book" >
+		INSERT INTO book(
+			isbn, title, 
+			short_description, long_description, image_name 
+			<isNotNull prepend="," property="author">
+				id_author
+			</isNotNull> 		
+		)VALUES(
+			#isbn#, #title#, 
+			#shortDescription#, #longDescription#, #imageName#
+			<isNotNull prepend="," property="author">
+				#author.id#
+			</isNotNull>
+		)
+		
+		<selectKey resultClass="int"  keyProperty="id"> 
+		   SELECT LAST_INSERT_ID() AS value
+		</selectKey>
+	</insert>
+	
+	
+	<update id="updateBook" parameterClass="Book">
+		UPDATE book SET
+			isbn = #isbn#,
+			title = #title#,		
+			short_description = #shortDescription#,
+			long_description = #longDescription#,
+			image_name = #imageName#
+			<isNotNull prepend="," property="author">
+				id_author = #author.id#
+			</isNotNull>
+		WHERE id_book = #id#
+	</update>
+	
+	<delete id="deleteBook" parameterClass="Book">
+		DELETE FROM book 
+		<dynamic prepend="WHERE">
+			<isParameterPresent>
+				id_book = #id#
+			</isParameterPresent>			
+		</dynamic>
+	</delete>
+	
+	<delete id="deleteCategory" parameterClass="Category">
+		DELETE FROM category 
+		<dynamic prepend="WHERE">
+			<isParameterPresent>
+				id_category = #id#
+			</isParameterPresent>			
+		</dynamic>
+	</delete>
+	
+	<delete id="deleteAuthor" parameterClass="Author">
+		DELETE FROM author 
+		<dynamic prepend="WHERE">
+			<isParameterPresent>
+				id_author = #id#
+			</isParameterPresent>			
+		</dynamic>
+	</delete>
+		
+	<procedure id="helloProcedure" parameterClass="Param" >
+		{ CALL helloProcedure(			
+			#name,jdbcType=VARCHAR,mode=IN#,
+	       	#message,jdbcType=VARCHAR,mode=OUT# 
+			) 
+		}
+	</procedure>
+	
+	<statement id="helloFunction" parameterClass="map" resultClass="string">
+		select helloFunction(#name#) as message
+	</statement>
+	
+	<procedure id="helloFunctionProc" parameterClass="Param" >
+		{ #message,jdbcType=VARCHAR,mode=OUT# = CALL helloFunction( 
+			#name,jdbcType=VARCHAR,mode=IN# 
+		) }
+	</procedure>
+	
+	<resultMap class="Category" id="categoryResultMap" >
+		<result property="id" column="id_category" />
+		<result property="name" column="name_category" />
+	</resultMap>
+	
+	<resultMap class="Author" id="authorResultMap" >
+		<result property="id" column="id_author" />
+		<result property="name" column="name_author" />
+	</resultMap>
+	
+	<!-- groupBy id (identifier object property) -->
+	<resultMap class="Book" id="greedyBook" extends="bookResultMap" groupBy="id">		
+		<!-- nested resultMap references must be prefixed by namespace  -->
+		<result property="categories" resultMap="book.categoryResultMap" />
+	<result property="author.id" column="id_author" />
+	<result property="author.name" column="name_author" />	
+	</resultMap>
+	
+	<select id="selectBookAndCategoryGreedy" resultMap="greedyBook" parameterClass="int">
+		SELECT
+		b.id_book,
+		b.isbn,
+		b.title,
+		b.short_description,
+		b.long_description,
+		b.image_name,
+		c.id_category,
+		c.name_category,
+		a.id_author,
+		a.name_author
+		FROM book b
+		LEFT OUTER JOIN category_book cb ON b.id_book = cb.id_book
+		LEFT OUTER JOIN category c ON cb.id_category = c.id_category
+		LEFT OUTER JOIN author a ON b.id_author = a.id_author
+		<isParameterPresent prepend="AND">
+			b.id_book = #value#
+		</isParameterPresent>				
+	</select>
+	
+	
+	<select id="selectCategoryByBookId" parameterClass="int" resultClass="Category">
+		SELECT 
+			c.id_category AS id, 
+			c.name_category AS name 
+		FROM category c JOIN category_book cb ON c.id_category = cb.id_category
+		WHERE cb.id_book = #id#
+	</select>
+	
+	<select id="selectAuthorById" parameterClass="int" resultClass="Author">
+		SELECT 
+			a.id_author AS id, 
+			a.name_author AS name 
+		FROM author a
+		WHERE a.id_author = #id#
+	</select>	
+	
+	<resultMap class="Book" id="lazyBook" extends="bookResultMap">
+		<!-- nested select references must be prefixed by namespace  -->
+		<result property="categories" javaType="Category" column="id_book" select="book.selectCategoryByBookId" />
+		<result property="author" javaType="Author" column="id_author" select="book.selectAuthorById" />		
+	</resultMap>
+	
+	<select id="selectLazyBook" resultMap="lazyBook">
+		SELECT
+		b.id_book,
+		b.isbn,
+		b.title,
+		b.short_description,
+		b.long_description,
+		b.image_name,
+		b.id_author
+		FROM book b
+	</select>
+	
+	
+	<select id="selectAllCategories" resultClass="Category">
+		SELECT 
+			c.id_category AS id, 
+			c.name_category AS name 
+		FROM category c
+	</select>
+	
+	<delete id="deleteBookCategories" parameterClass="Book">
+		DELETE FROM category_book 
+		<dynamic prepend="WHERE">
+			<isParameterPresent>
+				id_book = #id#
+			</isParameterPresent>			
+		</dynamic>
+	</delete>
+	
+	<insert id="insertBookCategories" parameterClass="Book">
+		INSERT INTO category_book(
+		id_book,
+		id_category
+		)VALUES
+		<iterate property="categories" open="" close="" conjunction=",">
+			(#id#, #categories[].id#)
+		</iterate>		
+	</insert>
+	
+	<insert id="insertAuthor" parameterClass="Author" >
+		INSERT INTO author(
+			name_author		
+		)VALUES(
+			#name#
+		)
+		
+		<selectKey resultClass="int"  keyProperty="id"> 
+		   SELECT LAST_INSERT_ID() AS value
+		</selectKey>
+	</insert>
+	
+	<insert id="insertCategory" parameterClass="Category" >
+		INSERT INTO category(
+			name_category		
+		)VALUES(
+			#name#
+		)
+		
+		<selectKey resultClass="int"  keyProperty="id"> 
+		   SELECT LAST_INSERT_ID() AS value
+		</selectKey>
+	</insert>
+	
+	
+
+</sqlMap>
